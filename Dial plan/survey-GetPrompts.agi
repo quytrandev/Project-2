@@ -1,0 +1,32 @@
+#!/usr/bin/php5.6
+
+<?php
+
+require_once('DatabaseUtils.php');
+require_once 'phpagi.php';
+
+$agi = new AGI();
+$agi->verbose('HELLO');
+
+$db = new DatabaseUtils('cloudsurvey', '192.168.1.101', 'primasadmin', '!PriAd2019');
+#Select prompt file
+$querySelectPromptFile = "SELECT PromptFile,PromptOrder FROM SurveyPrompt WHERE SurveyId=:SurveyId ORDER BY PromptOrder;";
+$params = array('SurveyId' => $argv[1]); #SurveyId param
+$customerPrompts = $db->select($querySelectPromptFile,$params);
+
+if($customerPrompts != false) {
+	$agi->set_variable('prompt1',$customerPrompts[0]['PromptFile']);
+	$agi->set_variable('prompt2',$customerPrompts[1]['PromptFile']);
+	$agi->set_variable('prompt3',$customerPrompts[2]['PromptFile']);
+}
+
+
+#Select SurveyID
+$querySelectSurveyID= "SELECT SurveyId FROM Survey WHERE SurveyKey =:ID;";
+
+$surveyID = $db->select($querySelectSurveyID,$SurveyKey);
+
+if($surveyID != false){
+	$agi->set_variable('SurveyId',$surveyID[0]['SurveyId']);
+}
+?>

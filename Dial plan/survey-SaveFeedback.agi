@@ -1,0 +1,62 @@
+#!/usr/bin/php5.6
+
+<?php
+require_once('DatabaseUtils.php');
+require_once 'phpagi.php';
+
+$agi = new AGI();
+$db = new DatabaseUtils('cloudsurvey', '192.168.1.101', 'primasadmin', '!PriAd2019');
+$agi->verbose('CALLINFO-'."http://192.168.1.62/api/pcs/callinfo/".$argv[3]); 
+$agi->verbose('IP Address: '.$argv[4]); 
+
+//Get Call Info from customer server
+$commonResponse = file_get_contents("http://192.168.1.62/api/pcs/callinfo/".$argv[3]);
+$json=utf8_encode($commonResponse);
+$firstDecode = json_decode($json);					
+$callInfo=json_decode($firstDecode->result);		//Decode twice because 'result' is a nested Json
+
+$agi->verbose('json data:'.$json);    
+$agi->verbose('Call Info data:'.$firstDecode->result);
+$agi->verbose('DNIS Name:'.$callInfo->DNISName);
+
+$agi->verbose('debug: '.json_last_error());    
+	
+//Get User ID from IP address
+$querySelectUserId="SELECT Id from AspNetUsers where IPAddress=:IPAddress";
+$params0=array('IPAddress'=>$argv[4]);
+$userId=$db->select($querySelectUserId,$params0);
+
+// if($userId != false){
+// $agi->set_variable('userId',$userId[0]['Id']);
+// }
+$agi->verbose('user id: '.$userId[0]['Id']);
+if($firstDecode->error == null)						//Check error in 1st decode
+{
+	
+	//Save feedback to db
+	$querySaveFeedback= "INSERT INTO SurveyPoint
+	(CallId,SurveyId,Point,DNIS,DNISName,VDN,VDNName,ANI,Extension,AgentId,AgentName,UserId,DateReceived) VALUES
+	(:CallId,:SurveyId,:Point,:DNIS,:DNISName,:VDN,:VDNName,:ANI,:Extension,:AgentId,:AgentName,:UserId,NOW());";
+	$params= array(
+		'CallId' => $argv[3],
+		'SurveyId' => $argv[1],
+		'Point' => $argv[2],
+		'DNIS' => $callInfo->DNIS,
+		'DNISName' => $callInfo->DNISName,
+		'VDN' => $callInfo->VDN,
+		'VDNName' => $callInfo->VDNName,
+		'ANI' => $callInfo->ANI,
+		'Extension' => $callInfo->Extension,
+		'AgentId' => $callInfo->AgentID,
+		'AgentName' => $callInfo->AgentName,
+		'UserId'=>$userId[0]['Id']
+	);
+	$saveFeedback = $db->insert($querySaveFeedback,$params);
+	
+	//Post feedback to Cloud report server
+}
+
+
+
+
+?>
